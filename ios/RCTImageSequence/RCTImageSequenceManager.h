@@ -4,8 +4,9 @@
 //
 
 #import "RCTViewManager.h"
+#import "RCTImageSequenceView.h"
 
 @interface RCTImageSequenceManager : RCTViewManager
-
+- (void)startAnimation:(RCTImageSequenceView*)view;
 
 @end

@@ -4,8 +4,11 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <React/RCTComponent.h>
+#import <React/RCTView.h>
 
 @interface RCTImageSequenceView : UIImageView
-
+@property (nonatomic, copy) RCTBubblingEventBlock onStartAnimation;
+@property (nonatomic) id delegate;
 
 @end

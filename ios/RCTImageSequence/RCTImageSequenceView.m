@@ -4,11 +4,14 @@
 //
 
 #import "RCTImageSequenceView.h"
+#import "RCTImageSequenceManager.h"
 
 @implementation RCTImageSequenceView {
     NSUInteger _framesPerSecond;
     NSMutableDictionary *_activeTasks;
     NSMutableDictionary *_imagesLoaded;
+    NSArray *_urls;
+    NSTimer *_timer;
     BOOL _loop;
 }
 
@@ -16,30 +19,37 @@
     __weak RCTImageSequenceView *weakSelf = self;
 
     self.animationImages = nil;
-
+    _urls = images;
     _activeTasks = [NSMutableDictionary new];
     _imagesLoaded = [NSMutableDictionary new];
-
-    for (NSUInteger index = 0; index < images.count; index++) {
-        NSDictionary *item = images[index];
-
-        #ifdef DEBUG
-        NSString *url = item[@"uri"];
-        #else
-        NSString *url = [NSString stringWithFormat:@"file://%@", item[@"uri"]]; // when not in debug, the paths are "local paths" (because resources are bundled in app)
-        #endif
-
-        dispatch_async(dispatch_queue_create("dk.mads-lee.ImageSequence.Downloader", NULL), ^{
-            UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:url]]];
-            dispatch_async(dispatch_get_main_queue(), ^{
-              [weakSelf onImageLoadTaskAtIndex:index image:image];
-            });
-        });
-
-        _activeTasks[@(index)] = url;
-    }
+    
+    [self start];
+    
+    
+    
+    
+//    for (NSUInteger index = 0; index < images.count; index++) {
+//        NSDictionary *item = images[index];
+//
+//        #ifdef DEBUG
+//        NSString *url = item[@"uri"];
+//        #else
+//        NSString *url = [NSString stringWithFormat:@"file://%@", item[@"uri"]]; // when not in debug, the paths are "local paths" (because resources are bundled in app)
+//        #endif
+//
+//        dispatch_async(dispatch_queue_create("dk.mads-lee.ImageSequence.Downloader", NULL), ^{
+//            UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:url]]];
+//            dispatch_async(dispatch_get_main_queue(), ^{
+//              [weakSelf onImageLoadTaskAtIndex:index image:image];
+//            });
+//        });
+//
+//        _activeTasks[@(index)] = url;
+//    }
 }
-
+- (void)dealloc {
+    [self stop];
+}
 - (void)onImageLoadTaskAtIndex:(NSUInteger)index image:(UIImage *)image {
     if (index == 0) {
         self.image = image;
@@ -66,22 +76,55 @@
     self.image = nil;
     self.animationDuration = images.count * (1.0f / _framesPerSecond);
     self.animationImages = images;
-    self.animationRepeatCount = _loop ? 0 : 1;
+//    self.animationRepeatCount = _loop ? 0 : 1;
+    [(RCTImageSequenceManager*)self.delegate startAnimation:self];
     [self startAnimating];
 }
 
 - (void)setFramesPerSecond:(NSUInteger)framesPerSecond {
     _framesPerSecond = framesPerSecond;
-
-    if (self.animationImages.count > 0) {
-        self.animationDuration = self.animationImages.count * (1.0f / _framesPerSecond);
-    }
+    [self start];
 }
 
+- (void) stop {
+    [_timer invalidate];
+    _timer = nil;
+}
+- (void) start {
+    [self stop];
+     __weak RCTImageSequenceView *weakSelf = self;
+    __block NSNumber *count = @0;
+    NSInteger imagesCount = [_urls count];
+    NSArray* urls = _urls;
+    BOOL loop = _loop;
+    _timer = [NSTimer scheduledTimerWithTimeInterval:1.0/25.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        if (loop == FALSE && count.integerValue + 1 >= imagesCount) {
+            [timer invalidate];
+            return;
+        }
+        count = @((count.integerValue + 1) % imagesCount);
+        
+#ifdef DEBUG
+        NSString *url = urls[count.integerValue][@"uri"];
+#else
+        NSString *url = [NSString stringWithFormat:@"file://%@", _urls[count.integerValue][@"uri"]]; // when not in debug, the paths are "local paths" (because resources are bundled in app)
+#endif
+        
+//        dispatch_async(dispatch_queue_create("dk.mads-lee.ImageSequence.Downloader", NULL), ^{
+            UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:url]]];
+//            dispatch_async(dispatch_get_main_queue(), ^{
+//                if (timer.isValid) {
+                    [weakSelf setImage:image];
+//                }
+                //  [weakSelf onImageLoadTaskAtIndex:index image:image];
+//            });
+//        });
+        
+    }];
+}
 - (void)setLoop:(NSUInteger)loop {
     _loop = loop;
-
-    self.animationRepeatCount = _loop ? 0 : 1;
+    [self start];
 }
 
 @end
